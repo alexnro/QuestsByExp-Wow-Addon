@@ -10,5 +10,8 @@ desktop.ini
 .vscode/
 .idea/
 
+# Release zips
+*.zip
+
 # Local Claude Code settings
 .claude/settings.local.json

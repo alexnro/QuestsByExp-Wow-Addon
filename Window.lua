@@ -9,6 +9,7 @@ local ACTIONS_WIDTH = 44
 local COLUMNS = {
     { key = "title", label = "Quest", width = 220, justify = "LEFT" },
     { key = "zone",  label = "Zone",  width = 130, justify = "LEFT" },
+    { key = "type",  label = "Type",  width = 70,  justify = "LEFT" },
     { key = "level", label = "Lvl",   width = 35,  justify = "CENTER" },
     { key = "xp",    label = "XP",    width = 70,  justify = "RIGHT" },
 }
@@ -70,6 +71,7 @@ local function OnRowEnter(row)
     GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
     GameTooltip:SetText(data.title, 1, 0.82, 0)
     if data.zone ~= "" then GameTooltip:AddLine(data.zone, 1, 1, 1) end
+    GameTooltip:AddLine("Type: " .. ns.GetQuestTypeLabel(data.questType), 1, 1, 1)
     GameTooltip:AddLine("Level " .. data.level, 1, 1, 1)
     GameTooltip:AddLine("XP: " .. FormatXP(data), 1, 1, 1)
     GameTooltip:AddLine("Click to open in the quest log", 0.5, 0.5, 0.5)
@@ -141,6 +143,7 @@ local function InitRow(row, data)
         cells.title:SetTextColor(color.r, color.g, color.b)
     end
     cells.zone:SetText(data.zone)
+    cells.type:SetText(ns.GetQuestTypeLabel(data.questType, true))
     cells.level:SetText(data.level > 0 and data.level or "")
     cells.xp:SetText(FormatXP(data))
 

@@ -3,14 +3,24 @@ local addonName, ns = ...
 -- Name search and quest-type filter. Hidden types are saved in
 -- OrderQuestsByExpDB.hiddenTypes; the search text lasts for the session only.
 
+-- label: shown in the filter menu; short: shown in the window's Type column
 ns.QUEST_TYPES = {
-    { key = "normal",  label = "Normal" },
-    { key = "group",   label = "Group / elite" },
-    { key = "dungeon", label = "Dungeon" },
-    { key = "raid",    label = "Raid" },
-    { key = "pvp",     label = "PvP" },
-    { key = "class",   label = "Class" },
+    { key = "normal",  label = "Normal",        short = "Normal" },
+    { key = "group",   label = "Group / elite", short = "Group" },
+    { key = "dungeon", label = "Dungeon",       short = "Dungeon" },
+    { key = "raid",    label = "Raid",          short = "Raid" },
+    { key = "pvp",     label = "PvP",           short = "PvP" },
+    { key = "class",   label = "Class",         short = "Class" },
 }
+
+local typeByKey = {}
+for _, questType in ipairs(ns.QUEST_TYPES) do typeByKey[questType.key] = questType end
+
+function ns.GetQuestTypeLabel(key, short)
+    local questType = typeByKey[key]
+    if not questType then return "" end
+    return short and questType.short or questType.label
+end
 
 local searchText = ""
 
