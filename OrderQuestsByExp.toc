@@ -1,11 +1,14 @@
 ## Interface: 16001
 ## Title: Order Quests By Exp
 ## Notes: Lists your quests ordered by the experience they reward. /ordq
-## Author: alexj
+## Author: alexnro
 ## Version: 0.1.0
 ## SavedVariables: OrderQuestsByExpDB
 
 Core.lua
 QuestData.lua
+Filters.lua
+QuestActions.lua
 Window.lua
+MinimapButton.lua
 Events.lua

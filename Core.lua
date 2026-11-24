@@ -21,6 +21,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         eventFrame:UnregisterEvent("ADDON_LOADED")
     elseif event == "PLAYER_LOGIN" then
         ns.Print("loaded. Type /ordq to show your quests by XP.")
+        ns.InitMinimapButton()
         ns.RestoreWindow()
     end
 end)
@@ -29,6 +30,7 @@ local function PrintHelp()
     ns.Print("commands:")
     ns.Print("  /ordq - show or hide the quest window")
     ns.Print("  /ordq reset - move the window back to the center")
+    ns.Print("  /ordq minimap - show or hide the minimap button")
     ns.Print("  /ordq help - show this help")
 end
 
@@ -40,6 +42,8 @@ SlashCmdList.ORDERQUESTSBYEXP = function(msg)
     elseif msg == "reset" then
         ns.ResetWindowPosition()
         ns.Print("window position reset.")
+    elseif msg == "minimap" then
+        ns.ToggleMinimapButton()
     else
         PrintHelp()
     end

@@ -26,6 +26,10 @@ name, location (zone / quest-log header), level and XP amount.
 - Guard APIs that may be missing or error on this client:
   `type(fn) == "function"` checks and `pcall` around quest-log calls.
   Use `issecretvalue(v)` (when it exists) before reading values that could be secret.
+- Frames are created without global names (no `_G` pollution), including the
+  minimap button.
+- Reuse Blizzard's own dialogs (e.g. `ABANDON_QUEST`) instead of adding
+  `StaticPopupDialogs` entries.
 - Chat output goes through `ns.Print`, which prefixes the addon tag.
 - Cache frequently used API functions as locals at the top of the file that uses them.
 - Slash command: `/ordq`.

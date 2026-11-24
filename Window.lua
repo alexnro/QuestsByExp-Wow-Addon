@@ -1,16 +1,26 @@
 local addonName, ns = ...
 
--- The quest list window: header row + scrolling list of quests.
+-- The quest list window: search + filter bar, header row, scrolling list
+-- of quests with share / abandon buttons, and a "showing X of Y" footer.
 
-local WIDTH, HEIGHT = 480, 340
-local ROW_HEIGHT = 18
+local ROW_HEIGHT = 22
 local COLUMN_GAP = 4
+local ACTIONS_WIDTH = 44
 local COLUMNS = {
-    { key = "title", label = "Quest", width = 210, justify = "LEFT" },
-    { key = "zone",  label = "Zone",  width = 120, justify = "LEFT" },
+    { key = "title", label = "Quest", width = 220, justify = "LEFT" },
+    { key = "zone",  label = "Zone",  width = 130, justify = "LEFT" },
     { key = "level", label = "Lvl",   width = 35,  justify = "CENTER" },
-    { key = "xp",    label = "XP",    width = 60,  justify = "RIGHT" },
+    { key = "xp",    label = "XP",    width = 70,  justify = "RIGHT" },
 }
+
+local LIST_WIDTH = ACTIONS_WIDTH
+for _, col in ipairs(COLUMNS) do LIST_WIDTH = LIST_WIDTH + col.width + COLUMN_GAP end
+
+local WIDTH = LIST_WIDTH + 12 + 30 -- left inset + scrollbar gutter
+local HEIGHT = 420
+
+local SHARE_TEXTURE = "Interface\\GossipFrame\\AvailableQuestIcon"
+local ABANDON_TEXTURE = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
 
 local window
 
@@ -33,6 +43,12 @@ local function FormatXP(data)
     if data.pending then return "..." end
     return "?"
 end
+
+local function HideTooltip()
+    GameTooltip:Hide()
+end
+
+-- Row ----------------------------------------------------------------------
 
 local function OnRowClick(row)
     local questID = row.data and row.data.questID
@@ -60,18 +76,61 @@ local function OnRowEnter(row)
     GameTooltip:Show()
 end
 
-local function OnRowLeave()
-    GameTooltip:Hide()
+local function OnShareClick(button)
+    local data = button:GetParent().data
+    if data then ns.ShareQuest(data.questID) end
+end
+
+local function OnShareEnter(button)
+    local data = button:GetParent().data
+    if not data then return end
+    local canShare, reason = ns.CanShareQuest(data.questID)
+    GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Share quest")
+    if canShare then
+        GameTooltip:AddLine("Offer this quest to your group.", 1, 1, 1)
+    else
+        GameTooltip:AddLine(reason, 1, 0.3, 0.3)
+    end
+    GameTooltip:Show()
+end
+
+local function OnAbandonClick(button)
+    local data = button:GetParent().data
+    if data then ns.AbandonQuest(data.questID, data.title) end
+end
+
+local function OnAbandonEnter(button)
+    GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Abandon quest")
+    GameTooltip:AddLine("Asks for confirmation first.", 1, 1, 1)
+    GameTooltip:Show()
+end
+
+local function CreateActionButton(row, texture, onClick, onEnter)
+    local button = CreateFrame("Button", nil, row)
+    button:SetSize(16, 16)
+    button:SetNormalTexture(texture)
+    button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    button:SetScript("OnClick", onClick)
+    button:SetScript("OnEnter", onEnter)
+    button:SetScript("OnLeave", HideTooltip)
+    return button
 end
 
 local function InitRow(row, data)
     if not row.cells then
-        row.cells = CreateCells(row, "GameFontHighlightSmall")
+        row.cells = CreateCells(row, "GameFontHighlight")
         row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
         row:RegisterForClicks("LeftButtonUp")
         row:SetScript("OnClick", OnRowClick)
         row:SetScript("OnEnter", OnRowEnter)
-        row:SetScript("OnLeave", OnRowLeave)
+        row:SetScript("OnLeave", HideTooltip)
+
+        row.abandonButton = CreateActionButton(row, ABANDON_TEXTURE, OnAbandonClick, OnAbandonEnter)
+        row.abandonButton:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+        row.shareButton = CreateActionButton(row, SHARE_TEXTURE, OnShareClick, OnShareEnter)
+        row.shareButton:SetPoint("RIGHT", row.abandonButton, "LEFT", -6, 0)
     end
     row.data = data
 
@@ -84,7 +143,15 @@ local function InitRow(row, data)
     cells.zone:SetText(data.zone)
     cells.level:SetText(data.level > 0 and data.level or "")
     cells.xp:SetText(FormatXP(data))
+
+    -- Dim the share button when sharing isn't possible right now.
+    local canShare = ns.CanShareQuest(data.questID)
+    local shareTexture = row.shareButton:GetNormalTexture()
+    shareTexture:SetDesaturated(not canShare)
+    row.shareButton:SetAlpha(canShare and 1 or 0.4)
 end
+
+-- Position -----------------------------------------------------------------
 
 local function SavePosition(frame)
     local point, _, relPoint, x, y = frame:GetPoint(1)
@@ -99,6 +166,13 @@ local function ApplyPosition(frame)
     else
         frame:SetPoint("CENTER")
     end
+end
+
+-- Window -------------------------------------------------------------------
+
+local function UpdateFilterButton()
+    local hidden = ns.CountHiddenTypes()
+    window.filterButton:SetText(hidden > 0 and ("Filters (%d off)"):format(hidden) or "Filters")
 end
 
 local function CreateWindow()
@@ -128,18 +202,36 @@ local function CreateWindow()
         frame.CloseButton:HookScript("OnClick", function() ns.db.shown = false end)
     end
 
+    -- Search box + filter button
+    local searchBox = CreateFrame("EditBox", nil, frame, "SearchBoxTemplate")
+    searchBox:SetSize(220, 20)
+    searchBox:SetPoint("TOPLEFT", 20, -32)
+    searchBox:HookScript("OnTextChanged", function(self)
+        ns.SetSearchText(self:GetText())
+        ns.RefreshWindow()
+    end)
+
+    local filterButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    filterButton:SetSize(120, 22)
+    filterButton:SetPoint("TOPRIGHT", -30, -31)
+    filterButton:SetText("Filters")
+    filterButton:SetScript("OnClick", function(self)
+        ns.OpenFilterMenu(self, frame.counts or {})
+    end)
+
+    -- Column header
     local header = CreateFrame("Frame", nil, frame)
-    header:SetPoint("TOPLEFT", 12, -30)
-    header:SetPoint("TOPRIGHT", -30, -30)
-    header:SetHeight(ROW_HEIGHT)
-    local headerCells = CreateCells(header, "GameFontNormalSmall")
+    header:SetPoint("TOPLEFT", 12, -60)
+    header:SetSize(LIST_WIDTH, ROW_HEIGHT)
+    local headerCells = CreateCells(header, "GameFontNormal")
     for _, col in ipairs(COLUMNS) do
         headerCells[col.key]:SetText(col.label)
     end
 
+    -- Quest list
     local scrollBox = CreateFrame("Frame", nil, frame, "WowScrollBoxList")
     scrollBox:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
-    scrollBox:SetPoint("BOTTOMRIGHT", -30, 10)
+    scrollBox:SetPoint("BOTTOMRIGHT", -30, 30)
 
     local scrollBar = CreateFrame("EventFrame", nil, frame, "MinimalScrollBar")
     scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 8, 0)
@@ -150,13 +242,17 @@ local function CreateWindow()
     view:SetElementInitializer("Button", InitRow)
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
 
-    local emptyText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    local emptyText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     emptyText:SetPoint("CENTER", scrollBox, "CENTER")
-    emptyText:SetText("No quests in your quest log.")
     emptyText:Hide()
+
+    local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    footer:SetPoint("BOTTOMLEFT", 14, 11)
 
     frame.scrollBox = scrollBox
     frame.emptyText = emptyText
+    frame.footer = footer
+    frame.filterButton = filterButton
     frame:SetScript("OnShow", function() ns.RefreshWindow() end)
 
     -- Start hidden so the first Show() fires OnShow and fills the list.
@@ -175,10 +271,26 @@ end
 
 function ns.RefreshWindow()
     if not ns.IsWindowShown() then return end
-    local quests = ns.CollectQuests()
+
+    local all = ns.CollectQuests()
+    local shown, counts = {}, {}
+    for _, quest in ipairs(all) do
+        counts[quest.questType] = (counts[quest.questType] or 0) + 1
+        if ns.PassesFilters(quest) then shown[#shown + 1] = quest end
+    end
+    window.counts = counts
+
     local retain = ScrollBoxConstants and ScrollBoxConstants.RetainScrollPosition
-    window.scrollBox:SetDataProvider(CreateDataProvider(quests), retain)
-    window.emptyText:SetShown(#quests == 0)
+    window.scrollBox:SetDataProvider(CreateDataProvider(shown), retain)
+
+    if #all == 0 then
+        window.emptyText:SetText("No quests in your quest log.")
+    else
+        window.emptyText:SetText("No quests match the search or filters.")
+    end
+    window.emptyText:SetShown(#shown == 0)
+    window.footer:SetText(("Showing %d of %d quests"):format(#shown, #all))
+    UpdateFilterButton()
 end
 
 function ns.ToggleWindow()

@@ -37,6 +37,50 @@ function ns.OnQuestDataLoaded(questID)
     return false
 end
 
+-- Quest type detection -----------------------------------------------------
+
+-- Enum.QuestTag values, with the numeric fallbacks used by the client.
+local QuestTag = (Enum and Enum.QuestTag) or {}
+local TAG_TO_TYPE = {
+    [QuestTag.Group or 1] = "group",
+    [QuestTag.PvP or 41] = "pvp",
+    [QuestTag.Raid or 62] = "raid",
+    [QuestTag.Dungeon or 81] = "dungeon",
+    [QuestTag.Heroic or 85] = "dungeon",
+    [QuestTag.Raid10 or 88] = "raid",
+    [QuestTag.Raid25 or 89] = "raid",
+}
+
+-- Class quests sit under a quest-log header named after the class.
+local classHeaders
+local function IsClassHeader(zone)
+    if not classHeaders then
+        classHeaders = {}
+        for _, names in ipairs({ LOCALIZED_CLASS_NAMES_MALE, LOCALIZED_CLASS_NAMES_FEMALE }) do
+            if type(names) == "table" then
+                for _, name in pairs(names) do classHeaders[name] = true end
+            end
+        end
+    end
+    return classHeaders[zone] == true
+end
+
+local function GetQuestType(info, zone)
+    if IsClassHeader(zone) then return "class" end
+    if C_QuestLog.GetQuestTagInfo then
+        local ok, tag = pcall(C_QuestLog.GetQuestTagInfo, info.questID)
+        if ok and type(tag) == "table" and not ns.IsSecret(tag.tagID) then
+            local questType = TAG_TO_TYPE[tag.tagID]
+            if questType then return questType end
+        end
+    end
+    local suggested = info.suggestedGroup
+    if not ns.IsSecret(suggested) and type(suggested) == "number" and suggested > 1 then
+        return "group"
+    end
+    return "normal"
+end
+
 -- Highest XP first; unknown XP last; ties go to the lower level, then by name.
 local function Compare(a, b)
     local ax, bx = a.xp or -1, b.xp or -1
@@ -83,6 +127,7 @@ function ns.CollectQuests()
                     difficultyLevel = SafeNumber(info.difficultyLevel) > 0 and info.difficultyLevel or level,
                     xp = xp,
                     pending = pending,
+                    questType = GetQuestType(info, zone),
                 }
             end
         end

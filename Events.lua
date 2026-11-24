@@ -11,6 +11,7 @@ local EVENTS = {
     "QUEST_REMOVED",
     "QUEST_TURNED_IN",
     "PLAYER_LEVEL_UP",
+    "GROUP_ROSTER_UPDATE", -- share buttons depend on being in a group
     "QUEST_DATA_LOAD_RESULT",
 }
 
