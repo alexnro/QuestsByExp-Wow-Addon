@@ -11,9 +11,11 @@ quest is worth doing next.
 - **On-screen list**: a compact list of your top quests by XP with their
   objectives, styled like the default quest tracker. Drag it anywhere, click
   its header to collapse it. Finished quests show "Ready to turn in".
-- **Search and filters**: search quests by name and hide quest types
-  (Normal, Group / elite, Dungeon, Raid, PvP, Class). Filters apply to both
-  the window and the on-screen list.
+- **Ready to turn in**: quests you can already hand in get a green tick, in
+  both the window and the on-screen list.
+- **Search and filters**: search quests by name, show only quests ready to
+  turn in, and hide quest types (Normal, Group / elite, Dungeon, Raid, PvP,
+  Class). Filters apply to both the window and the on-screen list.
 - **Quick actions**: share a quest with your group or abandon it (with the
   game's usual confirmation) straight from the window. Click any quest to
   open it in the quest log.

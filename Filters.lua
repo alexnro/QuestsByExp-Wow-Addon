@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
--- Name search and quest-type filter, shared by the window and the on-screen
--- tracker. Hidden types are saved in
--- OrderQuestsByExpDB.hiddenTypes; the search text lasts for the session only.
+-- Name search, "only ready to turn in" and quest-type filters, shared by the
+-- window and the on-screen tracker. Hidden types (OrderQuestsByExpDB.hiddenTypes)
+-- and onlyReady are saved; the search text lasts for the session only.
 
 -- label: shown in the filter menu; short: shown in the window's Type column
 ns.QUEST_TYPES = {
@@ -34,15 +34,18 @@ local function HiddenTypes()
     return ns.db.hiddenTypes
 end
 
-function ns.CountHiddenTypes()
+-- Number of saved filters in use (hidden types + "only ready to turn in").
+function ns.CountActiveFilters()
     local count = 0
     for _ in pairs(HiddenTypes()) do count = count + 1 end
+    if ns.db.onlyReady then count = count + 1 end
     return count
 end
 
 -- Used by both the window and the on-screen tracker.
 function ns.PassesFilters(quest)
     if HiddenTypes()[quest.questType] then return false end
+    if ns.db.onlyReady and not quest.complete then return false end
     if searchText ~= "" and not quest.title:lower():find(searchText, 1, true) then
         return false
     end
@@ -60,21 +63,37 @@ local function ToggleType(key)
     return MenuResponse and MenuResponse.Refresh
 end
 
--- counts: questType -> number of quests of that type in the log
+local function IsOnlyReady()
+    return ns.db.onlyReady == true
+end
+
+local function ToggleOnlyReady()
+    ns.db.onlyReady = not ns.db.onlyReady or nil
+    ns.RefreshAll()
+    return MenuResponse and MenuResponse.Refresh
+end
+
+-- counts: questType -> number of quests of that type in the log,
+-- plus counts.ready = number of quests ready to turn in
 function ns.OpenFilterMenu(owner, counts)
     if not (MenuUtil and MenuUtil.CreateContextMenu) then
         ns.Print("the filter menu isn't available on this client.")
         return
     end
     MenuUtil.CreateContextMenu(owner, function(_, root)
+        root:CreateTitle("Status")
+        local readyLabel = ("Only ready to turn in (%d)"):format(counts.ready or 0)
+        root:CreateCheckbox(readyLabel, IsOnlyReady, ToggleOnlyReady)
+        root:CreateDivider()
         root:CreateTitle("Show quest types")
         for _, questType in ipairs(ns.QUEST_TYPES) do
             local label = ("%s (%d)"):format(questType.label, counts[questType.key] or 0)
             root:CreateCheckbox(label, IsTypeShown, ToggleType, questType.key)
         end
         root:CreateDivider()
-        root:CreateButton("Show all types", function()
+        root:CreateButton("Clear all filters", function()
             wipe(HiddenTypes())
+            ns.db.onlyReady = nil
             ns.RefreshAll()
         end)
     end)

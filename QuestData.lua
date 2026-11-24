@@ -81,6 +81,13 @@ local function GetQuestType(info, zone)
     return "normal"
 end
 
+-- All objectives done, waiting to be handed in.
+local function IsReadyToTurnIn(questID)
+    if not C_QuestLog.IsComplete then return false end
+    local ok, complete = pcall(C_QuestLog.IsComplete, questID)
+    return ok and complete == true
+end
+
 -- Highest XP first; unknown XP last; ties go to the lower level, then by name.
 local function Compare(a, b)
     local ax, bx = a.xp or -1, b.xp or -1
@@ -128,6 +135,7 @@ function ns.CollectQuests()
                     xp = xp,
                     pending = pending,
                     questType = GetQuestType(info, zone),
+                    complete = IsReadyToTurnIn(info.questID),
                 }
             end
         end

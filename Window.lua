@@ -47,6 +47,13 @@ local function FormatXP(data)
 end
 ns.FormatXP = FormatXP
 
+-- Quest name with a green tick in front when it's ready to turn in.
+local READY_ICON = "|TInterface\\RaidFrame\\ReadyCheck-Ready:0|t "
+function ns.FormatQuestTitle(data)
+    if data.complete then return READY_ICON .. data.title end
+    return data.title
+end
+
 -- Quest tooltip shared by the window rows and the on-screen tracker.
 function ns.ShowQuestTooltip(owner, data)
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
@@ -55,6 +62,7 @@ function ns.ShowQuestTooltip(owner, data)
     GameTooltip:AddLine("Type: " .. ns.GetQuestTypeLabel(data.questType), 1, 1, 1)
     GameTooltip:AddLine("Level " .. data.level, 1, 1, 1)
     GameTooltip:AddLine("XP: " .. FormatXP(data), 1, 1, 1)
+    if data.complete then GameTooltip:AddLine("Ready to turn in", 0.3, 1, 0.3) end
     GameTooltip:AddLine("Click to open in the quest log", 0.5, 0.5, 0.5)
     GameTooltip:Show()
 end
@@ -132,7 +140,7 @@ local function InitRow(row, data)
     row.data = data
 
     local cells = row.cells
-    cells.title:SetText(data.title)
+    cells.title:SetText(ns.FormatQuestTitle(data))
     if type(GetQuestDifficultyColor) == "function" then
         local color = GetQuestDifficultyColor(data.difficultyLevel)
         cells.title:SetTextColor(color.r, color.g, color.b)
@@ -169,8 +177,8 @@ end
 -- Window -------------------------------------------------------------------
 
 local function UpdateFilterButton()
-    local hidden = ns.CountHiddenTypes()
-    window.filterButton:SetText(hidden > 0 and ("Filters (%d off)"):format(hidden) or "Filters")
+    local active = ns.CountActiveFilters()
+    window.filterButton:SetText(active > 0 and ("Filters (%d)"):format(active) or "Filters")
 end
 
 local function CreateWindow()
@@ -301,6 +309,7 @@ function ns.RefreshWindow(quests)
     local shown, counts = {}, {}
     for _, quest in ipairs(all) do
         counts[quest.questType] = (counts[quest.questType] or 0) + 1
+        if quest.complete then counts.ready = (counts.ready or 0) + 1 end
         if ns.PassesFilters(quest) then shown[#shown + 1] = quest end
     end
     window.counts = counts

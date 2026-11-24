@@ -103,7 +103,7 @@ end
 
 local function FillEntry(entry, data)
     entry.data = data
-    entry.title:SetText(data.title)
+    entry.title:SetText(ns.FormatQuestTitle(data))
     if type(GetQuestDifficultyColor) == "function" then
         local color = GetQuestDifficultyColor(data.difficultyLevel)
         entry.title:SetTextColor(color.r, color.g, color.b)
