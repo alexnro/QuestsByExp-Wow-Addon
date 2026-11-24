@@ -2,7 +2,7 @@
 ## Title: Order Quests By Exp
 ## Notes: Lists your quests ordered by the experience they reward. /ordq
 ## Author: alexnro
-## Version: 0.2.0
+## Version: 0.3.0
 ## SavedVariables: OrderQuestsByExpDB
 
 Core.lua
