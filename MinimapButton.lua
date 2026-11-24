@@ -30,7 +30,7 @@ local function CreateButton()
     button:SetSize(31, 31)
     button:SetFrameStrata("MEDIUM")
     button:SetFrameLevel(8)
-    button:RegisterForClicks("LeftButtonUp")
+    button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     button:RegisterForDrag("LeftButton")
     button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
@@ -50,8 +50,13 @@ local function CreateButton()
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     border:SetPoint("TOPLEFT")
 
-    button:SetScript("OnClick", function()
-        if not isDragging then ns.ToggleWindow() end
+    button:SetScript("OnClick", function(_, mouseButton)
+        if isDragging then return end
+        if mouseButton == "RightButton" then
+            ns.ToggleTracker()
+        else
+            ns.ToggleWindow()
+        end
     end)
     button:SetScript("OnDragStart", function(self)
         isDragging = true
@@ -65,7 +70,8 @@ local function CreateButton()
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:SetText("Order Quests By Exp")
-        GameTooltip:AddLine("Click to show or hide your quests by XP.", 1, 1, 1)
+        GameTooltip:AddLine("Left-click: show or hide the quest window.", 1, 1, 1)
+        GameTooltip:AddLine("Right-click: show or hide the on-screen list.", 1, 1, 1)
         GameTooltip:AddLine("Drag to move. /ordq minimap hides this button.", 0.5, 0.5, 0.5)
         GameTooltip:Show()
     end)

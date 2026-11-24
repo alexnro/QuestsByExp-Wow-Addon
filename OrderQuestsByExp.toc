@@ -10,5 +10,6 @@ QuestData.lua
 Filters.lua
 QuestActions.lua
 Window.lua
+Tracker.lua
 MinimapButton.lua
 Events.lua

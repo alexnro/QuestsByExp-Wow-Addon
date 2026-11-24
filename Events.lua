@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Keeps the window in sync with the quest log. Bursts of events are
+-- Keeps the window and the on-screen tracker in sync with the quest log. Bursts of events are
 -- collapsed into one refresh, and nothing runs while the window is hidden.
 
 local REFRESH_DELAY = 0.2
@@ -17,13 +17,25 @@ local EVENTS = {
 
 local refreshQueued = false
 
+local function AnythingShown()
+    return ns.IsWindowShown() or ns.IsTrackerShown()
+end
+
+-- Reads the quest log once and updates both the window and the tracker.
+function ns.RefreshAll()
+    if not AnythingShown() then return end
+    local quests = ns.CollectQuests()
+    ns.RefreshWindow(quests)
+    ns.RefreshTracker(quests)
+end
+
 local function RunRefresh()
     refreshQueued = false
-    ns.RefreshWindow()
+    ns.RefreshAll()
 end
 
 local function QueueRefresh()
-    if refreshQueued or not ns.IsWindowShown() then return end
+    if refreshQueued or not AnythingShown() then return end
     refreshQueued = true
     C_Timer.After(REFRESH_DELAY, RunRefresh)
 end

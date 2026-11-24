@@ -27,7 +27,8 @@ name, location (zone / quest-log header), level and XP amount.
   `type(fn) == "function"` checks and `pcall` around quest-log calls.
   Use `issecretvalue(v)` (when it exists) before reading values that could be secret.
 - Frames are created without global names (no `_G` pollution), including the
-  minimap button.
+  minimap button. Only exception: the main window is named
+  `OrderQuestsByExpWindow` so it can be added to `UISpecialFrames` (closes on Esc).
 - Reuse Blizzard's own dialogs (e.g. `ABANDON_QUEST`) instead of adding
   `StaticPopupDialogs` entries.
 - Chat output goes through `ns.Print`, which prefixes the addon tag.

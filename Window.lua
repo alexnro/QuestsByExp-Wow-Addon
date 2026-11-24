@@ -3,6 +3,7 @@ local addonName, ns = ...
 -- The quest list window: search + filter bar, header row, scrolling list
 -- of quests with share / abandon buttons, and a "showing X of Y" footer.
 
+local WINDOW_NAME = "OrderQuestsByExpWindow"
 local ROW_HEIGHT = 22
 local COLUMN_GAP = 4
 local ACTIONS_WIDTH = 44
@@ -44,6 +45,19 @@ local function FormatXP(data)
     if data.pending then return "..." end
     return "?"
 end
+ns.FormatXP = FormatXP
+
+-- Quest tooltip shared by the window rows and the on-screen tracker.
+function ns.ShowQuestTooltip(owner, data)
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    GameTooltip:SetText(data.title, 1, 0.82, 0)
+    if data.zone ~= "" then GameTooltip:AddLine(data.zone, 1, 1, 1) end
+    GameTooltip:AddLine("Type: " .. ns.GetQuestTypeLabel(data.questType), 1, 1, 1)
+    GameTooltip:AddLine("Level " .. data.level, 1, 1, 1)
+    GameTooltip:AddLine("XP: " .. FormatXP(data), 1, 1, 1)
+    GameTooltip:AddLine("Click to open in the quest log", 0.5, 0.5, 0.5)
+    GameTooltip:Show()
+end
 
 local function HideTooltip()
     GameTooltip:Hide()
@@ -52,30 +66,11 @@ end
 -- Row ----------------------------------------------------------------------
 
 local function OnRowClick(row)
-    local questID = row.data and row.data.questID
-    if not questID then return end
-    if InCombatLockdown() then
-        ns.Print("can't open the quest log during combat.")
-        return
-    end
-    if type(QuestMapFrame_OpenToQuestDetails) == "function" then
-        QuestMapFrame_OpenToQuestDetails(questID)
-    elseif type(ToggleQuestLog) == "function" then
-        ToggleQuestLog()
-    end
+    if row.data then ns.OpenQuestDetails(row.data.questID) end
 end
 
 local function OnRowEnter(row)
-    local data = row.data
-    if not data then return end
-    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-    GameTooltip:SetText(data.title, 1, 0.82, 0)
-    if data.zone ~= "" then GameTooltip:AddLine(data.zone, 1, 1, 1) end
-    GameTooltip:AddLine("Type: " .. ns.GetQuestTypeLabel(data.questType), 1, 1, 1)
-    GameTooltip:AddLine("Level " .. data.level, 1, 1, 1)
-    GameTooltip:AddLine("XP: " .. FormatXP(data), 1, 1, 1)
-    GameTooltip:AddLine("Click to open in the quest log", 0.5, 0.5, 0.5)
-    GameTooltip:Show()
+    if row.data then ns.ShowQuestTooltip(row, row.data) end
 end
 
 local function OnShareClick(button)
@@ -179,7 +174,9 @@ local function UpdateFilterButton()
 end
 
 local function CreateWindow()
-    local frame = CreateFrame("Frame", nil, UIParent, "BasicFrameTemplateWithInset")
+    -- Named only so it can join UISpecialFrames, which closes it on Esc.
+    local frame = CreateFrame("Frame", WINDOW_NAME, UIParent, "BasicFrameTemplateWithInset")
+    tinsert(UISpecialFrames, WINDOW_NAME)
     frame:SetSize(WIDTH, HEIGHT)
     frame:SetFrameStrata("MEDIUM")
     frame:SetToplevel(true)
@@ -201,9 +198,6 @@ local function CreateWindow()
     end
     title:SetText("Quests by XP")
 
-    if frame.CloseButton then
-        frame.CloseButton:HookScript("OnClick", function() ns.db.shown = false end)
-    end
 
     -- Search box + filter button
     local searchBox = CreateFrame("EditBox", nil, frame, "SearchBoxTemplate")
@@ -211,7 +205,7 @@ local function CreateWindow()
     searchBox:SetPoint("TOPLEFT", 20, -32)
     searchBox:HookScript("OnTextChanged", function(self)
         ns.SetSearchText(self:GetText())
-        ns.RefreshWindow()
+        ns.RefreshAll()
     end)
 
     local filterButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -221,6 +215,27 @@ local function CreateWindow()
     filterButton:SetScript("OnClick", function(self)
         ns.OpenFilterMenu(self, frame.counts or {})
     end)
+
+    -- Toggles the always-visible on-screen tracker.
+    local pinCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    pinCheck:SetSize(24, 24)
+    pinCheck:SetPoint("RIGHT", filterButton, "LEFT", -110, 0)
+    local pinLabel = pinCheck.Text or pinCheck.text
+    if not pinLabel then
+        pinLabel = pinCheck:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        pinLabel:SetPoint("LEFT", pinCheck, "RIGHT", 2, 0)
+    end
+    pinLabel:SetText("Show on screen")
+    pinCheck:SetScript("OnClick", function(self)
+        ns.SetTrackerShown(self:GetChecked())
+    end)
+    pinCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Show on screen")
+        GameTooltip:AddLine("Keep a compact list of your top quests by XP on screen, like the quest tracker.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    pinCheck:SetScript("OnLeave", HideTooltip)
 
     -- Column header
     local header = CreateFrame("Frame", nil, frame)
@@ -256,7 +271,13 @@ local function CreateWindow()
     frame.emptyText = emptyText
     frame.footer = footer
     frame.filterButton = filterButton
+    frame.pinCheck = pinCheck
     frame:SetScript("OnShow", function() ns.RefreshWindow() end)
+    -- Closed by the X, Esc or /ordq. Hiding the whole UI (Alt+Z) also fires
+    -- OnHide, but then the window itself is still marked shown.
+    frame:SetScript("OnHide", function(self)
+        if not self:IsShown() then ns.db.shown = false end
+    end)
 
     -- Start hidden so the first Show() fires OnShow and fills the list.
     frame:Hide()
@@ -272,10 +293,11 @@ function ns.IsWindowShown()
     return window ~= nil and window:IsShown()
 end
 
-function ns.RefreshWindow()
+-- quests: optional, an already collected list (see ns.RefreshAll)
+function ns.RefreshWindow(quests)
     if not ns.IsWindowShown() then return end
 
-    local all = ns.CollectQuests()
+    local all = quests or ns.CollectQuests()
     local shown, counts = {}, {}
     for _, quest in ipairs(all) do
         counts[quest.questType] = (counts[quest.questType] or 0) + 1
@@ -294,6 +316,7 @@ function ns.RefreshWindow()
     window.emptyText:SetShown(#shown == 0)
     window.footer:SetText(("Showing %d of %d quests"):format(#shown, #all))
     UpdateFilterButton()
+    window.pinCheck:SetChecked(ns.IsTrackerShown())
 end
 
 function ns.ToggleWindow()

@@ -23,13 +23,16 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         ns.Print("loaded. Type /ordq to show your quests by XP.")
         ns.InitMinimapButton()
         ns.RestoreWindow()
+        ns.InitTracker()
     end
 end)
 
 local function PrintHelp()
     ns.Print("commands:")
     ns.Print("  /ordq - show or hide the quest window")
-    ns.Print("  /ordq reset - move the window back to the center")
+    ns.Print("  /ordq tracker - show or hide the on-screen list")
+    ns.Print("  /ordq tracker <number> - how many quests the on-screen list shows")
+    ns.Print("  /ordq reset - move the window and on-screen list back to their default spots")
     ns.Print("  /ordq minimap - show or hide the minimap button")
     ns.Print("  /ordq help - show this help")
 end
@@ -37,12 +40,16 @@ end
 SLASH_ORDERQUESTSBYEXP1 = "/ordq"
 SlashCmdList.ORDERQUESTSBYEXP = function(msg)
     msg = strtrim(msg or ""):lower()
-    if msg == "" then
+    local command, arg = msg:match("^(%S*)%s*(.-)$")
+    if command == "" then
         ns.ToggleWindow()
-    elseif msg == "reset" then
+    elseif command == "tracker" then
+        if arg ~= "" then ns.SetTrackerMax(arg) else ns.ToggleTracker() end
+    elseif command == "reset" then
         ns.ResetWindowPosition()
-        ns.Print("window position reset.")
-    elseif msg == "minimap" then
+        ns.ResetTrackerPosition()
+        ns.Print("window and on-screen list positions reset.")
+    elseif command == "minimap" then
         ns.ToggleMinimapButton()
     else
         PrintHelp()

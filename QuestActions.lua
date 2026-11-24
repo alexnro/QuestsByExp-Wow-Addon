@@ -1,12 +1,26 @@
 local addonName, ns = ...
 
--- Share and abandon, using the same calls as the default quest log.
+-- Open, share and abandon, using the same calls as the default quest log.
 
 local function GetLogIndex(questID)
     if not C_QuestLog.GetLogIndexForQuestID then return nil end
     local ok, index = pcall(C_QuestLog.GetLogIndexForQuestID, questID)
     if ok and type(index) == "number" and index > 0 then return index end
     return nil
+end
+
+-- Opens the quest's details in the world map quest log.
+function ns.OpenQuestDetails(questID)
+    if not questID then return end
+    if InCombatLockdown() then
+        ns.Print("can't open the quest log during combat.")
+        return
+    end
+    if type(QuestMapFrame_OpenToQuestDetails) == "function" then
+        QuestMapFrame_OpenToQuestDetails(questID)
+    elseif type(ToggleQuestLog) == "function" then
+        ToggleQuestLog()
+    end
 end
 
 -- Returns canShare, reason

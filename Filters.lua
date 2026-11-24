@@ -1,6 +1,7 @@
 local addonName, ns = ...
 
--- Name search and quest-type filter. Hidden types are saved in
+-- Name search and quest-type filter, shared by the window and the on-screen
+-- tracker. Hidden types are saved in
 -- OrderQuestsByExpDB.hiddenTypes; the search text lasts for the session only.
 
 -- label: shown in the filter menu; short: shown in the window's Type column
@@ -39,6 +40,7 @@ function ns.CountHiddenTypes()
     return count
 end
 
+-- Used by both the window and the on-screen tracker.
 function ns.PassesFilters(quest)
     if HiddenTypes()[quest.questType] then return false end
     if searchText ~= "" and not quest.title:lower():find(searchText, 1, true) then
@@ -54,7 +56,7 @@ end
 local function ToggleType(key)
     local hidden = HiddenTypes()
     if hidden[key] then hidden[key] = nil else hidden[key] = true end
-    ns.RefreshWindow()
+    ns.RefreshAll()
     return MenuResponse and MenuResponse.Refresh
 end
 
@@ -73,7 +75,7 @@ function ns.OpenFilterMenu(owner, counts)
         root:CreateDivider()
         root:CreateButton("Show all types", function()
             wipe(HiddenTypes())
-            ns.RefreshWindow()
+            ns.RefreshAll()
         end)
     end)
 end
