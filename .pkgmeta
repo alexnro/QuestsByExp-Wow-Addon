@@ -1,0 +1,8 @@
+# BigWigs packager settings: folder name inside the zip and files left out.
+# Dotfiles (.git, .github, .gitignore, .pkgmeta) are left out automatically.
+package-as: OrderQuestsByExp
+
+ignore:
+  - CLAUDE.md
+  - README.md
+  - assets
