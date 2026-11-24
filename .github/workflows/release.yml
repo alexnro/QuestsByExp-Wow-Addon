@@ -1,12 +1,23 @@
-# Builds the addon zip and uploads it to CurseForge and a GitHub Release
-# whenever a version tag (e.g. v0.4.0) is pushed.
-# Needs the CF_API_KEY repository secret (Settings > Secrets and variables > Actions).
+# Builds the addon zip with the BigWigs packager.
+# - Pushing a version tag (e.g. v0.4.0) uploads it to CurseForge and a GitHub Release.
+# - "Run workflow" in the Actions tab builds a test zip you can download from the
+#   run page; tick "upload" to also send it to CurseForge as an alpha file.
+# Uploading needs the CF_API_KEY repository secret
+# (Settings > Secrets and variables > Actions).
 name: Package and release
 
 on:
-  push:
-    tags:
-      - "v*"
+  # Paused until the CurseForge project is approved: uncomment these three
+  # lines to package and upload automatically on version tags again.
+  # push:
+  #   tags:
+  #     - "v*"
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Also upload this build to CurseForge (as an alpha file)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -21,4 +32,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - uses: BigWigsMods/packager@v2
+        with:
+          # -d = build only, skip uploading (manual runs without "upload" ticked)
+          args: ${{ (github.event_name == 'workflow_dispatch' && !inputs.upload) && '-d' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OrderQuestsByExp
+          path: .release/*.zip
