@@ -1,7 +1,10 @@
 # Builds the addon zip with the BigWigs packager.
-# - Pushing a version tag (e.g. v0.4.0) uploads it to CurseForge and a GitHub Release.
-# - "Run workflow" in the Actions tab builds a test zip you can download from the
-#   run page; tick "upload" to also send it to CurseForge as an alpha file.
+# - "Run workflow" in the Actions tab:
+#   - with a version (e.g. 0.4.0): tags the commit as v0.4.0 and publishes a
+#     release to CurseForge and GitHub Releases.
+#   - without a version: builds a test zip you can download from the run page;
+#     tick "upload" to also send it to CurseForge as an alpha file.
+# - Pushing a version tag (e.g. v0.4.0) does the same as a release (paused below).
 # Uploading needs the CF_API_KEY repository secret
 # (Settings > Secrets and variables > Actions).
 name: Package and release
@@ -14,8 +17,13 @@ on:
   #     - "v*"
   workflow_dispatch:
     inputs:
+      version:
+        description: "Release version, e.g. 0.4.0 (creates tag v0.4.0 and publishes to CurseForge). Leave empty for a test build."
+        type: string
+        required: false
+        default: ""
       upload:
-        description: "Also upload this build to CurseForge (as an alpha file)"
+        description: "Test builds only: also upload to CurseForge as an alpha file"
         type: boolean
         default: false
 
@@ -33,10 +41,32 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The packager publishes a release when the commit it builds carries a
+      # version tag, so tag it first. Tags pushed with GITHUB_TOKEN don't start
+      # another workflow run.
+      - name: Create release tag
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must look like 1.2.3 (got '$VERSION')"
+            exit 1
+          fi
+          TAG="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
       - uses: BigWigsMods/packager@v2
         with:
-          # -d = build only, skip uploading (manual runs without "upload" ticked)
-          args: ${{ (github.event_name == 'workflow_dispatch' && !inputs.upload) && '-d' || '' }}
+          # -d = build only, skip uploading (test builds without "upload" ticked)
+          args: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '' && !inputs.upload) && '-d' || '' }}
 
       - uses: actions/upload-artifact@v4
         with:
